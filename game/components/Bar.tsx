@@ -7,18 +7,16 @@ export default function Bar({ rhythms, POE, bpm }) {
   let [finished, setFinished] = useState(false);
 
   let frames = [];
+  const fps = 50;
   rhythms.forEach((rhythm, index) => {
     let indicator = "out-of-range";
-
-    for (let i = 0; i < 800 / rhythm.dur / (bpm / 60); i++) {
+    let timeForRhythm = (240 * fps) / bpm / rhythm.dur;
+    for (let i = 0; i < timeForRhythm; i++) {
       indicator = "out-of-range";
-      if (i < (800 * POE * 0.01) / rhythm.dur / (bpm / 60)) {
+      if (i < timeForRhythm * POE * 0.01) {
         indicator = "in-range";
       }
-      if (
-        i >= (800 * (1 - POE * 0.01)) / rhythm.dur / (bpm / 60) &&
-        index < rhythms.length - 1
-      ) {
+      if (i >= timeForRhythm * (1 - 0.01 * POE) && index < rhythms.length - 1) {
         indicator = "early";
         frames.push([rhythm.index + 1, indicator]);
         continue;
@@ -42,7 +40,6 @@ export default function Bar({ rhythms, POE, bpm }) {
     //checkk if mouse click or space hit
     if (e.type !== "mousedown" && e.code !== "Space") return;
     let frame = window.frame;
-    console.log(frame);
     if (frame >= frames.length) {
       return;
     }
@@ -138,10 +135,20 @@ export default function Bar({ rhythms, POE, bpm }) {
   }
   function start() {
     window.frame = 0;
+    let time = 0;
+    let distance = 0;
+    rhythms.forEach((rhythm) => {
+      time += 4 / rhythm.dur;
+      distance += 800 / rhythm.dur;
+    });
+    time *= 60 / bpm;
+    barRef.current.style.transition = `all ${time}s linear`;
+    barRef.current.style.transform = `translateX(-${distance}px)`;
+
     setStarted(true);
     setInterval(() => {
       loop();
-    }, 5);
+    }, 1000 / fps);
 
     function loop() {
       let frame = window.frame;
@@ -150,8 +157,10 @@ export default function Bar({ rhythms, POE, bpm }) {
         window.clearInterval(loop);
         return;
       }
-      barRef.current.style.transform += `translateX(-${bpm / 60}px)`;
-      if (frame % (200 / (bpm / 60)) == 0 && frame < frames.length) playClick();
+      //times to travel one beat is 60/bpm in seconds, in frames it is 60/bpm * fps
+
+      if (frame % Math.floor((60 * fps) / bpm) == 0 && frame < frames.length)
+        playClick();
 
       window.frame++;
     }
