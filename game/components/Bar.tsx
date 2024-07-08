@@ -7,11 +7,25 @@ export default function Bar({ rhythms, POE, bpm }) {
   let [finished, setFinished] = useState(false);
 
   let frames = [];
-  const fps = 50;
+  const fps = 30;
+  let iAddition = 0;
+  let addition = 0;
+  let goal = 0;
+  let current = 0;
+
   rhythms.forEach((rhythm, index) => {
     let indicator = "out-of-range";
     let timeForRhythm = (240 * fps) / bpm / rhythm.dur;
-    for (let i = 0; i < timeForRhythm; i++) {
+    goal += timeForRhythm;
+
+    if (current + Math.floor(timeForRhythm) < goal) {
+      addition = 1;
+    } else {
+      addition = 0;
+    }
+    current += Math.floor(timeForRhythm) + addition;
+    console.log(current, goal);
+    for (let i = 0; i < Math.floor(timeForRhythm) + addition; i++) {
       indicator = "out-of-range";
       if (i < timeForRhythm * POE * 0.01) {
         indicator = "in-range";
@@ -21,7 +35,6 @@ export default function Bar({ rhythms, POE, bpm }) {
         frames.push([rhythm.index + 1, indicator]);
         continue;
       }
-
       frames.push([rhythm.index, indicator]);
     }
   });
@@ -152,6 +165,7 @@ export default function Bar({ rhythms, POE, bpm }) {
 
     function loop() {
       let frame = window.frame;
+      console.log(frame);
       if (frame > frames.length) {
         setFinished(true);
         window.clearInterval(loop);
