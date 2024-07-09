@@ -8,38 +8,6 @@ export default function Bar({ rhythms, POE, bpm }) {
   let [stateRhythms, setStateRhythms] = useState(rhythms);
   let [finished, setFinished] = useState(false);
 
-  let frames = [];
-  const fps = 30;
-  let iAddition = 0;
-  let addition = 0;
-  let goal = 0;
-  let current = 0;
-
-  rhythms.forEach((rhythm, index) => {
-    let indicator = "out-of-range";
-    let timeForRhythm = (240 * fps) / bpm / rhythm.dur;
-    goal += timeForRhythm;
-
-    if (current + Math.floor(timeForRhythm) < goal) {
-      addition = 1;
-    } else {
-      addition = 0;
-    }
-    current += Math.floor(timeForRhythm) + addition;
-    console.log(current, goal);
-    for (let i = 0; i < Math.floor(timeForRhythm) + addition; i++) {
-      indicator = "out-of-range";
-      if (i < timeForRhythm * POE * 0.01) {
-        indicator = "in-range";
-      }
-      if (i >= timeForRhythm * (1 - 0.01 * POE) && index < rhythms.length - 1) {
-        indicator = "early";
-        frames.push([rhythm.index + 1, indicator]);
-        continue;
-      }
-      frames.push([rhythm.index, indicator]);
-    }
-  });
   const barRef = useRef(null);
   const line = useRef(null);
   let [started, setStarted] = useState(false);
@@ -55,47 +23,64 @@ export default function Bar({ rhythms, POE, bpm }) {
     //checkk if mouse click or space hit
     if (e.type !== "mousedown" && e.code !== "Space") return;
     let frame = window.frame;
-    if (frame >= frames.length) {
-      return;
-    }
+    let rhythms = stateRhythms;
+    let timePassed = new Date().getTime() - window.startTime;
+    let timeElapsed = 0;
+    rhythms.forEach((r, index) => {
+      let rhythmDuration = 1000 * (60 / bpm) * (4 / r.dur);
+      if (timeElapsed > timePassed) return;
+
+      if (r.rest) {
+        timeElapsed += rhythmDuration;
+      } else {
+        if (timePassed == timeElapsed) {
+          if (r.comp) {
+            r.compl = false;
+            r.fail = false;
+          } else {
+            r.compl = true;
+            r.fail = false;
+          }
+          setStateRhythms([...rhythms]);
+        } else if (
+          timePassed < timeElapsed + POE * rhythmDuration * 0.01 &&
+          timePassed > timeElapsed
+        ) {
+          if (r.comp) {
+            r.compl = false;
+            r.fail = false;
+          } else {
+            r.compl = true;
+            r.fail = false;
+          }
+          setStateRhythms([...rhythms]);
+        } else if (
+          timePassed >= timeElapsed + rhythmDuration * (1 - POE * 0.01) &&
+          timePassed < timeElapsed + rhythmDuration &&
+          rhythms[index + 1]
+        ) {
+          if (rhythms[index + 1].rest) return;
+          if (rhythms[index + 1].compl) {
+            rhythms[index + 1].compl = false;
+            rhythms[index + 1].fail = true;
+          } else {
+            rhythms[index + 1].compl = true;
+            rhythms[index + 1].fail = false;
+          }
+          setStateRhythms([...rhythms]);
+        } else {
+          if (timePassed < timeElapsed + rhythmDuration) {
+            r.compl = false;
+            r.fail = true;
+
+            setStateRhythms([...rhythms]);
+          }
+        }
+        timeElapsed += rhythmDuration;
+      }
+    });
+
     playSnare();
-    if (stateRhythms[frames[frame][0]].rest) return;
-    if (stateRhythms[frames[frame][0]].compl) {
-      console.log("compl");
-      setStateRhythms((rhythms) => {
-        let newRhythms = [...rhythms];
-        newRhythms[frames[frame][0]].fail = true;
-        newRhythms[frames[frame][0]].compl = false;
-        return newRhythms;
-      });
-      frame++;
-      return;
-    }
-    if (frames[frame][1] == "in-range") {
-      console.log("compl");
-      setStateRhythms((rhythms) => {
-        let newRhythms = [...rhythms];
-        newRhythms[frames[frame][0]].compl = true;
-        return newRhythms;
-      });
-      frame++;
-    } else if (frames[frame][1] == "early") {
-      if (!frames[frame + 1]) return;
-      console.log("early");
-      setStateRhythms((rhythms) => {
-        let newRhythms = [...rhythms];
-        newRhythms[frames[frame + 1][0]].compl = true;
-        return newRhythms;
-      });
-    } else {
-      console.log("fail");
-      setStateRhythms((rhythms) => {
-        let newRhythms = [...rhythms];
-        newRhythms[frames[frame][0]].fail = true;
-        newRhythms[frames[frame][0]].compl = false;
-        return newRhythms;
-      });
-    }
   }
   function Data() {
     let count = 0;
@@ -149,7 +134,7 @@ export default function Bar({ rhythms, POE, bpm }) {
     );
   }
   function start() {
-    window.frame = 0;
+    window.startTime = new Date().getTime();
     let time = 0;
     let distance = 0;
     rhythms.forEach((rhythm) => {
@@ -163,22 +148,15 @@ export default function Bar({ rhythms, POE, bpm }) {
     setStarted(true);
     setInterval(() => {
       loop();
-    }, 1000 / fps);
+    }, 1000 * (60 / bpm));
 
     function loop() {
-      let frame = window.frame;
-      console.log(frame);
-      if (frame > frames.length) {
+      if (new Date().getTime() - window.startTime > time * 1000) {
         setFinished(true);
-        window.clearInterval(loop);
+        clearInterval(loop);
         return;
       }
-      //times to travel one beat is 60/bpm in seconds, in frames it is 60/bpm * fps
-
-      if (frame % Math.floor((60 * fps) / bpm) == 0 && frame < frames.length)
-        playClick();
-
-      window.frame++;
+      playClick();
     }
 
     window.addEventListener("keydown", (e) => {
