@@ -2,7 +2,9 @@
 import { useRef, useState } from "react";
 
 export default function Bar({ rhythms, POE, bpm }) {
-  rhythms.forEach((r, i) => (r.index = i));
+  rhythms.forEach((r, i) => {
+    r.index = i;
+  });
   let [stateRhythms, setStateRhythms] = useState(rhythms);
   let [finished, setFinished] = useState(false);
 
